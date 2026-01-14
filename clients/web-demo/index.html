@@ -1,0 +1,1022 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ClipSync - Universal Clipboard</title>
+    <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+    <style>
+      :root {
+        --bg-primary: #0a0a0f;
+        --bg-secondary: #12121a;
+        --bg-card: #1a1a24;
+        --bg-hover: #22222e;
+        --text-primary: #ffffff;
+        --text-secondary: #9ca3af;
+        --text-muted: #6b7280;
+        --accent-gradient: linear-gradient(
+          135deg,
+          #6366f1 0%,
+          #8b5cf6 50%,
+          #a855f7 100%
+        );
+        --accent-primary: #6366f1;
+        --success: #22c55e;
+        --danger: #ef4444;
+        --border-color: #2d2d3a;
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI",
+          system-ui, sans-serif;
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        min-height: 100vh;
+        overflow-x: hidden;
+      }
+
+      /* Animated background */
+      .bg-animation {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: -1;
+        overflow: hidden;
+      }
+
+      .bg-animation::before {
+        content: "";
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(
+            circle at 30% 30%,
+            rgba(99, 102, 241, 0.15) 0%,
+            transparent 50%
+          ),
+          radial-gradient(
+            circle at 70% 70%,
+            rgba(168, 85, 247, 0.1) 0%,
+            transparent 50%
+          );
+        animation: pulse 15s ease-in-out infinite;
+      }
+
+      @keyframes pulse {
+        0%,
+        100% {
+          transform: scale(1) rotate(0deg);
+        }
+        50% {
+          transform: scale(1.1) rotate(5deg);
+        }
+      }
+
+      .container {
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 40px 20px;
+      }
+
+      /* Header */
+      header {
+        text-align: center;
+        margin-bottom: 60px;
+      }
+
+      .logo {
+        display: inline-flex;
+        align-items: center;
+        gap: 16px;
+        margin-bottom: 20px;
+      }
+
+      .logo-icon {
+        font-size: 48px;
+        animation: spin 4s linear infinite;
+        animation-play-state: paused;
+      }
+
+      .logo-icon.syncing {
+        animation-play-state: running;
+      }
+
+      @keyframes spin {
+        from {
+          transform: rotate(0deg);
+        }
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      h1 {
+        font-size: 48px;
+        font-weight: 800;
+        background: var(--accent-gradient);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+
+      .tagline {
+        font-size: 18px;
+        color: var(--text-secondary);
+        margin-top: 12px;
+      }
+
+      /* Status Bar */
+      .status-bar {
+        display: flex;
+        justify-content: center;
+        gap: 24px;
+        margin-bottom: 40px;
+        flex-wrap: wrap;
+      }
+
+      .status-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 20px;
+        background: var(--bg-card);
+        border-radius: 50px;
+        border: 1px solid var(--border-color);
+      }
+
+      .status-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--text-muted);
+        transition: all 0.3s ease;
+      }
+
+      .status-dot.connected {
+        background: var(--success);
+        box-shadow: 0 0 10px var(--success);
+      }
+
+      /* Main Content */
+      .main-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 24px;
+        margin-bottom: 40px;
+      }
+
+      @media (max-width: 768px) {
+        .main-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .card {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: 20px;
+        padding: 28px;
+        transition: all 0.3s ease;
+      }
+
+      .card:hover {
+        border-color: var(--accent-primary);
+        box-shadow: 0 0 30px rgba(99, 102, 241, 0.15);
+        transform: translateY(-2px);
+      }
+
+      .card h2 {
+        font-size: 14px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: var(--text-muted);
+        margin-bottom: 20px;
+      }
+
+      /* Pairing Code */
+      .pairing-code {
+        font-family: "JetBrains Mono", "Fira Code", monospace;
+        font-size: 40px;
+        font-weight: 700;
+        letter-spacing: 12px;
+        text-align: center;
+        padding: 24px;
+        background: var(--bg-secondary);
+        border-radius: 16px;
+        margin-bottom: 16px;
+        background: var(--accent-gradient);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        user-select: all;
+      }
+
+      .hint {
+        text-align: center;
+        color: var(--text-muted);
+        font-size: 13px;
+      }
+
+      /* Input Group */
+      .input-group {
+        display: flex;
+        gap: 12px;
+      }
+
+      .input-group input {
+        flex: 1;
+        padding: 16px 20px;
+        font-size: 20px;
+        font-family: "JetBrains Mono", monospace;
+        letter-spacing: 8px;
+        text-align: center;
+        background: var(--bg-secondary);
+        border: 2px solid var(--border-color);
+        border-radius: 12px;
+        color: var(--text-primary);
+        outline: none;
+        transition: all 0.3s ease;
+      }
+
+      .input-group input:focus {
+        border-color: var(--accent-primary);
+        box-shadow: 0 0 20px rgba(99, 102, 241, 0.2);
+      }
+
+      .input-group input::placeholder {
+        letter-spacing: 0;
+        color: var(--text-muted);
+      }
+
+      /* Buttons */
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        padding: 16px 28px;
+        font-size: 15px;
+        font-weight: 600;
+        border: none;
+        border-radius: 12px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        text-decoration: none;
+      }
+
+      .btn-primary {
+        background: var(--accent-gradient);
+        color: white;
+        box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
+      }
+
+      .btn-primary:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 25px rgba(99, 102, 241, 0.5);
+      }
+
+      .btn-secondary {
+        background: var(--bg-hover);
+        color: var(--text-primary);
+        border: 2px solid var(--border-color);
+      }
+
+      .btn-secondary:hover {
+        background: var(--accent-primary);
+        border-color: var(--accent-primary);
+      }
+
+      .btn-danger {
+        background: var(--danger);
+        color: white;
+      }
+
+      .btn-block {
+        width: 100%;
+      }
+
+      .btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none !important;
+      }
+
+      /* Clipboard Area */
+      .clipboard-area {
+        grid-column: span 2;
+      }
+
+      @media (max-width: 768px) {
+        .clipboard-area {
+          grid-column: span 1;
+        }
+      }
+
+      .clipboard-textarea {
+        width: 100%;
+        min-height: 150px;
+        padding: 20px;
+        font-size: 16px;
+        line-height: 1.6;
+        background: var(--bg-secondary);
+        border: 2px solid var(--border-color);
+        border-radius: 16px;
+        color: var(--text-primary);
+        resize: vertical;
+        outline: none;
+        transition: all 0.3s ease;
+        font-family: inherit;
+      }
+
+      .clipboard-textarea:focus {
+        border-color: var(--accent-primary);
+      }
+
+      .clipboard-actions {
+        display: flex;
+        gap: 12px;
+        margin-top: 16px;
+      }
+
+      /* Devices List */
+      .devices-list {
+        list-style: none;
+        max-height: 200px;
+        overflow-y: auto;
+      }
+
+      .device-item {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 14px 16px;
+        background: var(--bg-secondary);
+        border-radius: 12px;
+        margin-bottom: 10px;
+        transition: all 0.2s ease;
+      }
+
+      .device-item:hover {
+        background: var(--bg-hover);
+      }
+
+      .device-icon {
+        font-size: 26px;
+      }
+
+      .device-info {
+        flex: 1;
+      }
+
+      .device-name {
+        font-weight: 500;
+        margin-bottom: 2px;
+      }
+
+      .device-platform {
+        font-size: 12px;
+        color: var(--text-muted);
+      }
+
+      .device-status {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--success);
+        box-shadow: 0 0 8px var(--success);
+      }
+
+      /* History */
+      .history-list {
+        list-style: none;
+        max-height: 250px;
+        overflow-y: auto;
+      }
+
+      .history-item {
+        padding: 14px 16px;
+        background: var(--bg-secondary);
+        border-radius: 12px;
+        margin-bottom: 10px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+
+      .history-item:hover {
+        background: var(--bg-hover);
+        transform: translateX(4px);
+      }
+
+      .history-content {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        margin-bottom: 6px;
+      }
+
+      .history-meta {
+        display: flex;
+        justify-content: space-between;
+        font-size: 11px;
+        color: var(--text-muted);
+      }
+
+      /* Toast */
+      .toast {
+        position: fixed;
+        bottom: 30px;
+        left: 50%;
+        transform: translateX(-50%) translateY(100px);
+        background: var(--bg-card);
+        border: 1px solid var(--accent-primary);
+        color: var(--text-primary);
+        padding: 16px 28px;
+        border-radius: 50px;
+        font-weight: 500;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+        opacity: 0;
+        transition: all 0.3s ease;
+        z-index: 1000;
+      }
+
+      .toast.show {
+        transform: translateX(-50%) translateY(0);
+        opacity: 1;
+      }
+
+      .toast.success {
+        border-color: var(--success);
+      }
+
+      .toast.error {
+        border-color: var(--danger);
+      }
+
+      /* Hidden */
+      .hidden {
+        display: none !important;
+      }
+
+      /* Footer */
+      footer {
+        text-align: center;
+        color: var(--text-muted);
+        font-size: 13px;
+        padding: 40px 0;
+      }
+
+      footer a {
+        color: var(--accent-primary);
+        text-decoration: none;
+      }
+
+      footer a:hover {
+        text-decoration: underline;
+      }
+
+      /* Scrollbar */
+      ::-webkit-scrollbar {
+        width: 6px;
+      }
+
+      ::-webkit-scrollbar-track {
+        background: var(--bg-secondary);
+        border-radius: 3px;
+      }
+
+      ::-webkit-scrollbar-thumb {
+        background: var(--border-color);
+        border-radius: 3px;
+      }
+
+      ::-webkit-scrollbar-thumb:hover {
+        background: var(--text-muted);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="bg-animation"></div>
+
+    <div class="container">
+      <header>
+        <div class="logo">
+          <span class="logo-icon" id="logoIcon">🔄</span>
+          <h1>ClipSync</h1>
+        </div>
+        <p class="tagline">
+          Universal Clipboard Sync — Copy anywhere, paste everywhere
+        </p>
+      </header>
+
+      <div class="status-bar">
+        <div class="status-item">
+          <span class="status-dot" id="serverStatus"></span>
+          <span id="serverStatusText">Connecting...</span>
+        </div>
+        <div class="status-item" id="roomStatus">
+          <span class="status-dot" id="roomDot"></span>
+          <span id="roomStatusText">No room</span>
+        </div>
+      </div>
+
+      <!-- Not Connected View -->
+      <div id="notConnectedView">
+        <div class="main-grid">
+          <div class="card">
+            <h2>Create Room</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 20px">
+              Start a new sync room and share the code
+            </p>
+            <button class="btn btn-primary btn-block" id="createRoomBtn">
+              ➕ Create New Room
+            </button>
+          </div>
+
+          <div class="card">
+            <h2>Join Room</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 20px">
+              Enter a 6-digit code to join
+            </p>
+            <div class="input-group">
+              <input
+                type="text"
+                id="pairingCodeInput"
+                placeholder="000000"
+                maxlength="6"
+              />
+              <button class="btn btn-secondary" id="joinRoomBtn">Join</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Connected View -->
+      <div id="connectedView" class="hidden">
+        <div class="main-grid">
+          <div class="card">
+            <h2>Pairing Code</h2>
+            <div class="pairing-code" id="pairingCode">------</div>
+            <p class="hint">Share this code with another device</p>
+            <button
+              class="btn btn-secondary btn-block"
+              id="refreshCodeBtn"
+              style="margin-top: 16px"
+            >
+              🔄 Refresh Code
+            </button>
+          </div>
+
+          <div class="card">
+            <h2>Connected Devices</h2>
+            <ul class="devices-list" id="devicesList">
+              <!-- Devices populated here -->
+            </ul>
+          </div>
+
+          <div class="card clipboard-area">
+            <h2>Sync Clipboard</h2>
+            <textarea
+              class="clipboard-textarea"
+              id="clipboardText"
+              placeholder="Paste or type text here to sync across devices..."
+            ></textarea>
+            <div class="clipboard-actions">
+              <button class="btn btn-primary" id="syncBtn">📋 Sync Now</button>
+              <button class="btn btn-secondary" id="pasteBtn">
+                📥 Paste from Clipboard
+              </button>
+              <button class="btn btn-secondary" id="copyBtn">
+                📤 Copy to Clipboard
+              </button>
+            </div>
+          </div>
+
+          <div class="card" style="grid-column: span 2">
+            <h2>History</h2>
+            <ul class="history-list" id="historyList">
+              <li
+                class="history-item"
+                style="text-align: center; color: var(--text-muted)"
+              >
+                No history yet
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <button class="btn btn-danger btn-block" id="disconnectBtn">
+          Disconnect
+        </button>
+      </div>
+
+      <footer>
+        Made with ❤️ for the <a href="#">Universal Clipboard Sync Hackathon</a>
+      </footer>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+      // Configuration
+      const SERVER_URL = "http://localhost:3000";
+
+      // State
+      let socket = null;
+      let roomCode = null;
+      let devices = [];
+      let history = [];
+
+      // DOM Elements
+      const elements = {
+        logoIcon: document.getElementById("logoIcon"),
+        serverStatus: document.getElementById("serverStatus"),
+        serverStatusText: document.getElementById("serverStatusText"),
+        roomDot: document.getElementById("roomDot"),
+        roomStatusText: document.getElementById("roomStatusText"),
+        notConnectedView: document.getElementById("notConnectedView"),
+        connectedView: document.getElementById("connectedView"),
+        createRoomBtn: document.getElementById("createRoomBtn"),
+        pairingCodeInput: document.getElementById("pairingCodeInput"),
+        joinRoomBtn: document.getElementById("joinRoomBtn"),
+        pairingCode: document.getElementById("pairingCode"),
+        refreshCodeBtn: document.getElementById("refreshCodeBtn"),
+        devicesList: document.getElementById("devicesList"),
+        clipboardText: document.getElementById("clipboardText"),
+        syncBtn: document.getElementById("syncBtn"),
+        pasteBtn: document.getElementById("pasteBtn"),
+        copyBtn: document.getElementById("copyBtn"),
+        historyList: document.getElementById("historyList"),
+        disconnectBtn: document.getElementById("disconnectBtn"),
+        toast: document.getElementById("toast"),
+      };
+
+      // Device Info
+      const deviceInfo = {
+        name: "Web Browser",
+        platform: "web",
+        browser: navigator.userAgent.includes("Firefox")
+          ? "Firefox"
+          : navigator.userAgent.includes("Safari") &&
+            !navigator.userAgent.includes("Chrome")
+          ? "Safari"
+          : "Chrome",
+      };
+
+      // Connect to server
+      function connect() {
+        socket = io(SERVER_URL, {
+          transports: ["websocket", "polling"],
+          reconnection: true,
+        });
+
+        socket.on("connect", () => {
+          console.log("[ClipSync] Connected to server");
+          elements.serverStatus.classList.add("connected");
+          elements.serverStatusText.textContent = "Connected";
+
+          // Try to rejoin previous room
+          const savedRoom = localStorage.getItem("roomCode");
+          if (savedRoom) {
+            rejoinRoom(savedRoom);
+          }
+        });
+
+        socket.on("disconnect", () => {
+          console.log("[ClipSync] Disconnected");
+          elements.serverStatus.classList.remove("connected");
+          elements.serverStatusText.textContent = "Disconnected";
+        });
+
+        socket.on("clipboard:sync", (data) => {
+          console.log("[ClipSync] Received:", data);
+          elements.clipboardText.value = data.content;
+          elements.logoIcon.classList.add("syncing");
+          setTimeout(() => elements.logoIcon.classList.remove("syncing"), 2000);
+
+          // Add to history
+          history.unshift(data);
+          if (history.length > 20) history.pop();
+          renderHistory();
+
+          showToast("📋 Clipboard synced!", "success");
+
+          // Auto-copy to clipboard
+          navigator.clipboard.writeText(data.content).catch(() => {});
+        });
+
+        socket.on("device:joined", (data) => {
+          console.log("[ClipSync] Device joined:", data);
+          refreshDevices();
+          showToast(
+            `🔗 ${data.deviceInfo?.name || "Device"} joined`,
+            "success"
+          );
+        });
+
+        socket.on("device:left", (data) => {
+          console.log("[ClipSync] Device left:", data);
+          refreshDevices();
+        });
+      }
+
+      // Create room
+      function createRoom() {
+        elements.createRoomBtn.disabled = true;
+
+        socket.emit("room:create", deviceInfo, (response) => {
+          elements.createRoomBtn.disabled = false;
+
+          if (response.success) {
+            roomCode = response.roomCode;
+            localStorage.setItem("roomCode", roomCode);
+            elements.pairingCode.textContent = formatCode(response.pairingCode);
+            showConnectedView();
+            refreshDevices();
+            showToast("🎉 Room created!", "success");
+          } else {
+            showToast(response.error, "error");
+          }
+        });
+      }
+
+      // Join room
+      function joinRoom() {
+        const code = elements.pairingCodeInput.value.trim();
+        if (code.length !== 6) {
+          showToast("Enter a valid 6-digit code", "error");
+          return;
+        }
+
+        elements.joinRoomBtn.disabled = true;
+
+        socket.emit(
+          "room:join",
+          { pairingCode: code, deviceInfo },
+          (response) => {
+            elements.joinRoomBtn.disabled = false;
+
+            if (response.success) {
+              roomCode = response.roomCode;
+              localStorage.setItem("roomCode", roomCode);
+              showConnectedView();
+              refreshDevices();
+              refreshPairingCode();
+
+              if (response.latestClipboard) {
+                elements.clipboardText.value = response.latestClipboard.content;
+              }
+
+              showToast("✅ Joined room!", "success");
+            } else {
+              showToast(response.error, "error");
+            }
+          }
+        );
+      }
+
+      // Rejoin room
+      function rejoinRoom(code) {
+        socket.emit(
+          "room:rejoin",
+          { roomCode: code, deviceInfo },
+          (response) => {
+            if (response.success) {
+              roomCode = code;
+              showConnectedView();
+              refreshDevices();
+              refreshPairingCode();
+
+              if (response.latestClipboard) {
+                elements.clipboardText.value = response.latestClipboard.content;
+              }
+            } else {
+              localStorage.removeItem("roomCode");
+            }
+          }
+        );
+      }
+
+      // Refresh pairing code
+      function refreshPairingCode() {
+        socket.emit("pairing:refresh", (response) => {
+          if (response.success) {
+            elements.pairingCode.textContent = formatCode(response.pairingCode);
+          }
+        });
+      }
+
+      // Refresh devices
+      function refreshDevices() {
+        socket.emit("devices:list", (response) => {
+          if (response.success) {
+            devices = response.devices;
+            renderDevices();
+          }
+        });
+      }
+
+      // Render devices
+      function renderDevices() {
+        if (devices.length === 0) {
+          elements.devicesList.innerHTML =
+            '<li class="device-item" style="justify-content: center; color: var(--text-muted);">No devices</li>';
+          return;
+        }
+
+        elements.devicesList.innerHTML = devices
+          .map(
+            (device) => `
+        <li class="device-item">
+          <span class="device-icon">${getDeviceIcon(device.platform)}</span>
+          <div class="device-info">
+            <div class="device-name">${escapeHtml(
+              device.name || "Unknown"
+            )}</div>
+            <div class="device-platform">${escapeHtml(
+              device.platform || "Unknown"
+            )}</div>
+          </div>
+          <span class="device-status"></span>
+        </li>
+      `
+          )
+          .join("");
+
+        elements.roomDot.classList.add("connected");
+        elements.roomStatusText.textContent = `${devices.length} device${
+          devices.length !== 1 ? "s" : ""
+        }`;
+      }
+
+      // Render history
+      function renderHistory() {
+        if (history.length === 0) {
+          elements.historyList.innerHTML =
+            '<li class="history-item" style="text-align: center; color: var(--text-muted);">No history yet</li>';
+          return;
+        }
+
+        elements.historyList.innerHTML = history
+          .map(
+            (item, i) => `
+        <li class="history-item" data-index="${i}">
+          <div class="history-content">${escapeHtml(
+            item.content.substring(0, 100)
+          )}</div>
+          <div class="history-meta">
+            <span>${item.type}</span>
+            <span>${formatTime(item.timestamp)}</span>
+          </div>
+        </li>
+      `
+          )
+          .join("");
+
+        // Add click handlers
+        elements.historyList
+          .querySelectorAll(".history-item")
+          .forEach((item) => {
+            item.addEventListener("click", () => {
+              const index = item.dataset.index;
+              if (history[index]) {
+                elements.clipboardText.value = history[index].content;
+                navigator.clipboard.writeText(history[index].content);
+                showToast("📋 Copied!", "success");
+              }
+            });
+          });
+      }
+
+      // Send clipboard
+      function sendClipboard() {
+        const content = elements.clipboardText.value.trim();
+        if (!content) {
+          showToast("Nothing to sync", "error");
+          return;
+        }
+
+        socket.emit("clipboard:update", {
+          type: "text",
+          content,
+          timestamp: Date.now(),
+        });
+
+        elements.logoIcon.classList.add("syncing");
+        setTimeout(() => elements.logoIcon.classList.remove("syncing"), 2000);
+
+        showToast("📤 Synced!", "success");
+      }
+
+      // Disconnect
+      function disconnect() {
+        localStorage.removeItem("roomCode");
+        roomCode = null;
+        elements.pairingCodeInput.value = "";
+        elements.clipboardText.value = "";
+        elements.roomDot.classList.remove("connected");
+        elements.roomStatusText.textContent = "No room";
+        showNotConnectedView();
+      }
+
+      // UI Helpers
+      function showConnectedView() {
+        elements.notConnectedView.classList.add("hidden");
+        elements.connectedView.classList.remove("hidden");
+      }
+
+      function showNotConnectedView() {
+        elements.connectedView.classList.add("hidden");
+        elements.notConnectedView.classList.remove("hidden");
+      }
+
+      function showToast(message, type = "success") {
+        elements.toast.textContent = message;
+        elements.toast.className = `toast ${type} show`;
+        setTimeout(() => elements.toast.classList.remove("show"), 3000);
+      }
+
+      function formatCode(code) {
+        return code.split("").join(" ");
+      }
+
+      function formatTime(timestamp) {
+        const diff = Date.now() - timestamp;
+        if (diff < 60000) return "Just now";
+        if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+        if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+        return new Date(timestamp).toLocaleDateString();
+      }
+
+      function getDeviceIcon(platform) {
+        const icons = {
+          web: "🌐",
+          macos: "🍎",
+          windows: "🪟",
+          linux: "🐧",
+          android: "🤖",
+          ios: "📱",
+        };
+        return icons[platform?.toLowerCase()] || "💻";
+      }
+
+      function escapeHtml(text) {
+        const div = document.createElement("div");
+        div.textContent = text;
+        return div.innerHTML;
+      }
+
+      // Event Listeners
+      elements.createRoomBtn.addEventListener("click", createRoom);
+      elements.joinRoomBtn.addEventListener("click", joinRoom);
+      elements.refreshCodeBtn.addEventListener("click", refreshPairingCode);
+      elements.syncBtn.addEventListener("click", sendClipboard);
+      elements.disconnectBtn.addEventListener("click", disconnect);
+
+      elements.pairingCodeInput.addEventListener("input", (e) => {
+        e.target.value = e.target.value.replace(/\D/g, "").slice(0, 6);
+        if (e.target.value.length === 6) {
+          joinRoom();
+        }
+      });
+
+      elements.pasteBtn.addEventListener("click", async () => {
+        try {
+          const text = await navigator.clipboard.readText();
+          elements.clipboardText.value = text;
+          showToast("📥 Pasted!", "success");
+        } catch {
+          showToast("Cannot access clipboard", "error");
+        }
+      });
+
+      elements.copyBtn.addEventListener("click", async () => {
+        try {
+          await navigator.clipboard.writeText(elements.clipboardText.value);
+          showToast("📤 Copied!", "success");
+        } catch {
+          showToast("Cannot access clipboard", "error");
+        }
+      });
+
+      // Keyboard shortcut
+      document.addEventListener("keydown", (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+          sendClipboard();
+        }
+      });
+
+      // Initialize
+      connect();
+    </script>
+  </body>
+</html>

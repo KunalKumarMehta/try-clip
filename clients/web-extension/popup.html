@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ClipSync</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <div class="container">
+      <!-- Header -->
+      <header class="header">
+        <div class="logo">
+          <span class="logo-icon">🔄</span>
+          <h1>ClipSync</h1>
+        </div>
+        <div class="status-indicator" id="statusIndicator">
+          <span class="status-dot"></span>
+          <span class="status-text">Connecting...</span>
+        </div>
+      </header>
+
+      <!-- Main Content -->
+      <main class="main">
+        <!-- Not Connected View -->
+        <div id="notConnectedView" class="view">
+          <div class="card">
+            <h2>Get Started</h2>
+            <p class="subtitle">
+              Create a new sync room or join an existing one
+            </p>
+
+            <button class="btn btn-primary" id="createRoomBtn">
+              <span class="btn-icon">➕</span>
+              Create New Room
+            </button>
+
+            <div class="divider">
+              <span>or</span>
+            </div>
+
+            <div class="input-group">
+              <input
+                type="text"
+                id="pairingCodeInput"
+                placeholder="Enter 6-digit code"
+                maxlength="6"
+                pattern="[0-9]*"
+              />
+              <button class="btn btn-secondary" id="joinRoomBtn">Join</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Connected View -->
+        <div id="connectedView" class="view hidden">
+          <!-- Pairing Code Display -->
+          <div class="card pairing-card" id="pairingCard">
+            <h3>Pairing Code</h3>
+            <div class="pairing-code" id="pairingCode">------</div>
+            <p class="hint">Enter this code on another device to sync</p>
+            <button class="btn btn-ghost" id="refreshCodeBtn">
+              <span class="btn-icon">🔄</span>
+              Refresh Code
+            </button>
+          </div>
+
+          <!-- Connected Devices -->
+          <div class="card devices-card">
+            <h3>
+              <span>Connected Devices</span>
+              <span class="badge" id="deviceCount">0</span>
+            </h3>
+            <ul class="devices-list" id="devicesList">
+              <!-- Devices will be populated here -->
+            </ul>
+          </div>
+
+          <!-- Quick Actions -->
+          <div class="quick-actions">
+            <button
+              class="btn btn-action"
+              id="syncNowBtn"
+              title="Sync clipboard now"
+            >
+              <span class="btn-icon">📋</span>
+              Sync Now
+            </button>
+            <button
+              class="btn btn-action"
+              id="historyBtn"
+              title="View clipboard history"
+            >
+              <span class="btn-icon">📜</span>
+              History
+            </button>
+          </div>
+
+          <!-- Disconnect -->
+          <button class="btn btn-danger btn-block" id="disconnectBtn">
+            Disconnect
+          </button>
+        </div>
+
+        <!-- History View -->
+        <div id="historyView" class="view hidden">
+          <div class="card">
+            <div class="card-header">
+              <h3>Clipboard History</h3>
+              <button class="btn btn-ghost" id="backFromHistoryBtn">
+                ← Back
+              </button>
+            </div>
+            <ul class="history-list" id="historyList">
+              <!-- History items will be populated here -->
+            </ul>
+          </div>
+        </div>
+      </main>
+
+      <!-- Footer -->
+      <footer class="footer">
+        <button class="btn btn-icon-only" id="settingsBtn" title="Settings">
+          ⚙️
+        </button>
+        <span class="version">v1.0.0</span>
+      </footer>
+
+      <!-- Settings Modal -->
+      <div class="modal hidden" id="settingsModal">
+        <div class="modal-backdrop"></div>
+        <div class="modal-content">
+          <h3>Settings</h3>
+          <div class="form-group">
+            <label for="serverUrlInput">Server URL</label>
+            <input
+              type="url"
+              id="serverUrlInput"
+              placeholder="http://localhost:3000"
+            />
+          </div>
+          <div class="form-group">
+            <label>
+              <input type="checkbox" id="autoConnectToggle" checked />
+              Auto-connect on startup
+            </label>
+          </div>
+          <div class="form-group">
+            <label>
+              <input type="checkbox" id="notificationsToggle" checked />
+              Show notifications
+            </label>
+          </div>
+          <div class="modal-actions">
+            <button class="btn btn-secondary" id="closeSettingsBtn">
+              Cancel
+            </button>
+            <button class="btn btn-primary" id="saveSettingsBtn">Save</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="popup.js" type="module"></script>
+  </body>
+</html>
