@@ -1,20 +1,22 @@
-# 🔄 ClipSync - Universal Clipboard Sync
+# ClipSync — Hackathon Prototype
 
 > Status: Archived hackathon exploration. This repository is retained as an
 > unfinished experiment and is not presented as a shipped product.
 
-A cross-platform clipboard synchronization system that enables real-time clipboard sharing across macOS, Windows, Linux, Android, and Web browsers.
+An unfinished exploration of cross-platform clipboard synchronization across a
+server, browser extension, and macOS client. The scope below records the intended
+hackathon direction rather than completed product capabilities.
 
 ![ClipSync Demo](docs/demo.gif)
 
-## ✨ Features
+## Intended scope
 
-- **🔗 Real-time Sync**: Clipboard updates propagate in under 2 seconds
-- **🔒 Secure**: End-to-end encryption with device pairing
-- **🌐 Cross-Platform**: Works on macOS, Windows, Linux, Android, and Web
-- **📜 History**: 50-item clipboard history with one-click paste
-- **🔄 Auto-Reconnect**: Graceful handling of network interruptions
-- **🎯 Simple Pairing**: 6-digit codes for easy device linking
+- Real-time clipboard synchronization
+- End-to-end encryption with device pairing
+- Browser and native clients
+- Clipboard history
+- Reconnection after network interruptions
+- Pairing codes for connecting devices
 
 ## 🏗️ Architecture
 
