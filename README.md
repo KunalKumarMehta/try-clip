@@ -1,5 +1,8 @@
 # 🔄 ClipSync - Universal Clipboard Sync
 
+> Status: Archived hackathon exploration. This repository is retained as an
+> unfinished experiment and is not presented as a shipped product.
+
 A cross-platform clipboard synchronization system that enables real-time clipboard sharing across macOS, Windows, Linux, Android, and Web browsers.
 
 ![ClipSync Demo](docs/demo.gif)
